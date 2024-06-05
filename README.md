@@ -256,3 +256,208 @@ En esta parte vamos a simular la app y vamos a agregar algunos elementos para ve
 Podemos ver que se guardaron los elementos en la base de datos.
 
 ![alt text](./capturasProcedimiento/8.png)
+
+## Cómo leer y actualizar datos con Room
+
+### 1. Antes de comenzar
+
+En los codelabs anteriores, aprendiste a usar una biblioteca de persistencias Room, una capa de abstracción sobre una base de datos SQLite, para almacenar datos de app.
+
+### 2. Descripción general de la app de partida
+
+En esta parte, se usa el código de solución de la app de Inventory del codelab anterior, Cómo conservar datos con Room, como código de partida.
+
+### 3. Actualiza el estado de la IU
+
+En el archivo ui/home/HomeScreen.kt
+
+```kotlin
+@Composable
+fun HomeScreen(
+    navigateToItemEntry: () -> Unit,
+    navigateToItemUpdate: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+    Scaffold(
+        topBar = {
+            // Top app with app title
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                // onClick details
+            ) {
+                Icon(
+                    // Icon details
+                )
+            }
+        },
+    ) { innerPadding ->
+
+       // Display List header and List of Items
+        HomeBody(
+            itemList = listOf(),  // Empty list is being passed in for itemList
+            onItemClick = navigateToItemUpdate,
+            modifier = modifier.padding(innerPadding)
+                              .fillMaxSize()
+        )
+    }
+``
+
+`
+```
+
+Esta función de componibilidad muestra los siguientes elementos:
+
+- La barra superior de la aplicación con el título
+- El botón de acción flotante (BAF) para agregar nuevos elementos al inventario "El boton de +".
+- La función de componibilidad HomeBody()
+
+Despues el codigo final se encuentra en el archivo HomeScreen.kt
+
+### 4. Muestra los datos de inventario
+
+Modificamos el archivo HomeScreen.kt
+
+```kotlin
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.inventory.ui.AppViewModelProvider
+
+@Composable
+fun HomeScreen(
+    navigateToItemEntry: () -> Unit,
+    navigateToItemUpdate: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
+)
+```
+
+Ejecuta la app. Observa que la lista de inventario muestra si guardaste elementos en la base de datos de tu app. Si la lista está vacía, agrega algunos elementos de inventario a la base de datos de la app.
+
+![alt text](./capturasProcedimiento/9.png)
+
+### 5. Prueba tu base de datos
+
+En el archivo androidTest/kotlin/ItemDaoTest.kt
+
+Queda de la siguiente forma:
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+class ItemDaoTest {
+
+    private lateinit var itemDao: ItemDao
+    private lateinit var inventoryDatabase: InventoryDatabase
+    private val item1 = Item(1, "Apples", 10.0, 20)
+    private val item2 = Item(2, "Bananas", 15.0, 97)
+
+    @Before
+    fun createDb() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        // Using an in-memory database because the information stored here disappears when the
+        // process is killed.
+        inventoryDatabase = Room.inMemoryDatabaseBuilder(context, InventoryDatabase::class.java)
+            // Allowing main thread queries, just for testing.
+            .allowMainThreadQueries()
+            .build()
+        itemDao = inventoryDatabase.itemDao()
+    }
+
+    @After
+    @Throws(IOException::class)
+    fun closeDb() {
+        inventoryDatabase.close()
+    }
+
+    @Test
+    @Throws(Exception::class)
+    fun daoInsert_insertsItemIntoDB() = runBlocking {
+        addOneItemToDb()
+        val allItems = itemDao.getAllItems().first()
+        assertEquals(allItems[0], item1)
+    }
+
+    @Test
+    @Throws(Exception::class)
+    fun daoGetAllItems_returnsAllItemsFromDB() = runBlocking {
+        addTwoItemsToDb()
+        val allItems = itemDao.getAllItems().first()
+        assertEquals(allItems[0], item1)
+        assertEquals(allItems[1], item2)
+    }
+
+
+    @Test
+    @Throws(Exception::class)
+    fun daoGetItem_returnsItemFromDB() = runBlocking {
+        addOneItemToDb()
+        val item = itemDao.getItem(1)
+        assertEquals(item.first(), item1)
+    }
+
+    @Test
+    @Throws(Exception::class)
+    fun daoDeleteItems_deletesAllItemsFromDB() = runBlocking {
+        addTwoItemsToDb()
+        itemDao.delete(item1)
+        itemDao.delete(item2)
+        val allItems = itemDao.getAllItems().first()
+        assertTrue(allItems.isEmpty())
+    }
+
+    @Test
+    @Throws(Exception::class)
+    fun daoUpdateItems_updatesItemsInDB() = runBlocking {
+        addTwoItemsToDb()
+        itemDao.update(Item(1, "Apples", 15.0, 25))
+        itemDao.update(Item(2, "Bananas", 5.0, 50))
+
+        val allItems = itemDao.getAllItems().first()
+        assertEquals(allItems[0], Item(1, "Apples", 15.0, 25))
+        assertEquals(allItems[1], Item(2, "Bananas", 5.0, 50))
+    }
+
+    private suspend fun addOneItemToDb() {
+        itemDao.insert(item1)
+    }
+
+    private suspend fun addTwoItemsToDb() {
+        itemDao.insert(item1)
+        itemDao.insert(item2)
+    }
+}
+```
+
+Procedemos a correr la prueba **daoInsert_insertsItemIntoDB**:
+
+![alt text](./capturasProcedimiento/10.png)
+La prueba fue exitosa.
+
+![alt text](./capturasProcedimiento/11.png)
+
+### 6. Muestra los detalles del elemento
+
+En el archvio ui/item/ItemDetailsScreen.kt
+
+Se modifica para mostrar lo siguiente:
+
+![alt text](./capturasProcedimiento/12.png)
+
+### 7. Implementa la pantalla Item Details
+
+En el archvio ui/item/ItemEditScreen.kt
+
+Se modifica para mostrar lo siguiente:
+
+![alt text](./capturasProcedimiento/13.png)
+
+Y poder modificar los datos del elemento.
+
+![alt text](./capturasProcedimiento/14.png)
+
+![alt text](./capturasProcedimiento/15.png)
+
+### 8. Implementa un elemento Sell
+
+![alt text](./capturasProcedimiento/16.png)
